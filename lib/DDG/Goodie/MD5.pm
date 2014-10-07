@@ -19,33 +19,26 @@ category 'transformations';
 
 triggers startend => 'md5', 'md5sum';
 
-sub html_output {
-    my ($str, $md5) = @_;
-
-    # prevent XSS
-    $str = html_enc($str);
-
-    return "<div class='zci--md5'>"
-          ."<span class='text--secondary'>MD5 of \"$str\"</span><br/>"
-          ."<span class='text--primary'>$md5</span>"
-          ."</div>";
-}
-
 handle remainder => sub {
-    s/^hash\s+(.*\S+)/$1/; # Remove 'hash' in queries like 'md5 hash this'
-    s/^of\s+(.*\S+)/$1/; # Remove 'of' in queries like 'md5 hash of this'
-    s/^"(.*)"$/$1/; # Remove quotes
-    if (/^\s*(.*\S+)/) {
-        # The string is encoded to get the utf8 representation instead of
-        # perls internal representation of strings, before it's passed to
-        # the md5 subroutine.
-        my $str = $1;
-        my $md5 = md5_hex(encode "utf8", $str);
-        return $md5, html => html_output($str, $md5);
-    } else {
-        # Exit unless a string is found
-	return;
-    }
+    my $rem = shift;
+
+    $rem =~ s/^hash\s+(.*\S+)/$1/;    # Remove 'hash' in queries like 'md5 hash this'
+    $rem =~ s/^of\s+(.*\S+)/$1/;      # Remove 'of' in queries like 'md5 hash of this'
+    $rem =~ s/^"(.*)"$/$1/;           # Remove quotes
+
+    return unless ($rem =~ /^\s*(.*\S+)/);
+
+    my $str = $1;
+    # The string is encoded to get the utf8 representation instead of
+    # perls internal representation of strings, before it's passed to
+    # the md5 subroutine.
+    my $md5 = md5_hex(encode "utf8", $str);
+    return $md5,
+      structured_answer => {
+        input     => [$str],
+        operation => 'MD5 hash',
+        result    => $md5
+      };
 };
 
 1;
