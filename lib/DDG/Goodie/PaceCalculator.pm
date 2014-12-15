@@ -97,18 +97,12 @@ sub SolveForTime {
 }
 
 handle remainder => sub {
-	if (m/^($time_re) ($dist_re)$/) {
-		return SolveForPace($1, $2);
-	} elsif (m/^($dist_re) ($time_re)$/) {
-		return SolveForPace($2, $1);
-	} elsif (m/^($time_re) ($pace_re)$/) {
-		return SolveForDistance($1, $2);
-	} elsif (m/^($pace_re) ($time_re)$/) {
-		return SolveForDistance($2, $1);
-	} elsif (m/^($dist_re) ($pace_re)$/) {
-		return SolveForTime($1, $2);
-	} elsif (m/^($pace_re) ($dist_re)$/) {
-		return SolveForTime($2, $1);
+	if (m/^(?<time>$time_re) (?<dist>$dist_re)$/ or m/^(?<dist>$dist_re) (?<time>$time_re)$/) {
+		return SolveForPace($+{time}, $+{dist});
+	} elsif (m/^(?<time>$time_re) (?<pace>$pace_re)$/ or m/^(?<pace>$pace_re) (?<time>$time_re)$/) {
+		return SolveForDistance($+{time}, $+{pace});
+	} elsif (m/^(?<dist>$dist_re) (?<pace>$pace_re)$/ or m/^(?<pace>$pace_re) (?<dist>$dist_re)$/) {
+		return SolveForTime($+{dist}, $+{pace});
 	} else {
 		return;
 	}
