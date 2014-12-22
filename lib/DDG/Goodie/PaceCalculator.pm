@@ -8,8 +8,17 @@ use DDG::Goodie;
 
 triggers end => "pace";
 
+# table of unit expressions to meters
+my %unit_distances = (
+	qr/met(?:er|re)s?/ => 1,
+	qr/(?:km|kilomet(?:er|re)s?)/ => 1000,
+	qr/miles?/ => 1609
+);
+
+my $unit_dists = join("|", keys(%unit_distances));
+my $unit_re = qr/$unit_dists/;
+
 my $time_re = qr/\d+:\d\d(?:\.\d+)?/;
-my $unit_re = qr/miles?|meters?|km?|kilometers?|kilometres?/;
 my $pace_re = qr/$time_re\/$unit_re/;
 my $count_re = qr/\d+(?:\.\d+)?/;
 
@@ -44,12 +53,8 @@ sub FormatTime {
 # Return meter equivalent of given unit.
 sub MetersPerUnit {
 	my $unit = shift;
-	if ($unit =~ m/miles?/) {
-		return 1609.344;
-	} elsif($unit =~ m/meters?/) {
-		return 1;
-	} elsif($unit =~ m/km?|kilometers?|kilometres?/) {
-		return 1000;
+	for my $re (keys %unit_distances) {
+		return $unit_distances{$re} if $unit =~ /$re/;
 	}
 }
 
