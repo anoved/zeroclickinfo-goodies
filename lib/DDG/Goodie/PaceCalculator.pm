@@ -10,9 +10,19 @@ triggers end => "pace";
 
 my $time_re = qr/\d+:\d\d(?:\.\d+)?/;
 my $unit_re = qr/miles?|meters?|km?|kilometers?|kilometres?/;
-my $count_re = qr/\d+(?:\.\d+)?/;
-my $dist_re = qr/marathon|half marathon|$count_re ?$unit_re/;
 my $pace_re = qr/$time_re\/$unit_re/;
+my $count_re = qr/\d+(?:\.\d+)?/;
+
+# table of named distances to meters
+my %named_distances = (
+	"marathon" => 42195,
+	"half marathon" => 21098
+);
+
+# assemble re of exact matches for named distance keys
+my $named_dists = join("|", map(quotemeta, keys(%named_distances)));
+my $distunit_re = qr/(?<count>$count_re) ?(?<unit>$unit_re)/;
+my $distance_re = qr/$named_dists|$distunit_re/;
 
 # Returns seconds in HH:MM:SS format.
 # hacky, doesn't handle decimal seconds
@@ -54,13 +64,8 @@ sub SimplifyTime {
 # Returns distance in meters.
 sub SimplifyDistance {
 	my $dist = shift;
-	if ($dist =~ m/marathon/) {
-		return 42195;
-	} elsif ($dist =~ m/half marathon/) {
-		return 21098;
-	} elsif ($dist =~ m/($count_re) ?($unit_re)/) {
-		return $1 * MetersPerUnit($2);
-	}
+	return $named_distances{$dist} if exists $named_distances{$dist};
+	return $+{count} * MetersPerUnit($+{unit}) if $dist =~ m/$distunit_re/;
 }
 
 # Returns pace in seconds per meter.
@@ -97,11 +102,11 @@ sub SolveForTime {
 }
 
 handle remainder => sub {
-	if (m/^(?<time>$time_re) (?<dist>$dist_re)$/ or m/^(?<dist>$dist_re) (?<time>$time_re)$/) {
+	if (m/^(?<time>$time_re) (?<dist>$distance_re)$/ or m/^(?<dist>$distance_re) (?<time>$time_re)$/) {
 		return SolveForPace($+{time}, $+{dist});
 	} elsif (m/^(?<time>$time_re) (?<pace>$pace_re)$/ or m/^(?<pace>$pace_re) (?<time>$time_re)$/) {
 		return SolveForDistance($+{time}, $+{pace});
-	} elsif (m/^(?<dist>$dist_re) (?<pace>$pace_re)$/ or m/^(?<pace>$pace_re) (?<dist>$dist_re)$/) {
+	} elsif (m/^(?<dist>$distance_re) (?<pace>$pace_re)$/ or m/^(?<pace>$pace_re) (?<dist>$distance_re)$/) {
 		return SolveForTime($+{dist}, $+{pace});
 	} else {
 		return;
