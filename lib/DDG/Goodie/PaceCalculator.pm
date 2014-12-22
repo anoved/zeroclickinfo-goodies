@@ -3,22 +3,19 @@ package DDG::Goodie::PaceCalculator;
 
 use DDG::Goodie;
 
-# with 'DDG::GoodieRole::NumberStyler';
-# my $number_re = number_style_regex();
-
 triggers end => "pace";
 
 # table of unit expressions to meters
 my %unit_distances = (
 	qr/met(?:er|re)s?/ => 1,
-	qr/(?:km|kilomet(?:er|re)s?)/ => 1000,
+	qr/(?:km?|kilomet(?:er|re)s?)/ => 1000,
 	qr/miles?/ => 1609
 );
 
 my $unit_dists = join("|", keys(%unit_distances));
 my $unit_re = qr/$unit_dists/;
 
-my $time_re = qr/\d+:\d\d(?:\.\d+)?/;
+my $time_re = qr/(?<minutes>\d+):(?<seconds>\d\d(?:\.\d+)?)/;
 my $pace_re = qr/(?<pacetime>$time_re)\/(?<paceunit>$unit_re)/;
 my $count_re = qr/\d+(?:\.\d+)?/;
 
@@ -56,7 +53,7 @@ sub FormatTime {
 sub MetersPerUnit {
 	my $unit = shift;
 	for my $re (keys %unit_distances) {
-		return $unit_distances{$re} if $unit =~ /$re/;
+		return $unit_distances{$re} if $unit =~ /^$re$/;
 	}
 }
 
@@ -64,8 +61,8 @@ sub MetersPerUnit {
 # Cannot handle seconds only; cannot handle hours.
 sub SimplifyTime {
 	my $time = shift;
-	$time =~ m/(\d+):(\d\d(?:\.\d+)?)/;	
-	return ($1 * 60) + $2;
+	$time =~ m/$time_re/;
+	return ($+{minutes} * 60) + $+{seconds};
 }
 
 # Returns distance in meters.
