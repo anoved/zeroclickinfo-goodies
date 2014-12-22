@@ -46,7 +46,8 @@ sub FormatTime {
 		$hours = int($minutes/60);
 		$minutes = $minutes - ($hours * 60);
 	}
-	return sprintf('%02d:%02d:%02d', $hours, $minutes, $seconds);
+	
+	return ($hours > 0 ? sprintf('%d:%02d:%02d', $hours, $minutes, $seconds) : sprintf('%d:%02d', $minutes, $seconds));
 }
 
 # Return meter equivalent of given unit.
@@ -88,7 +89,8 @@ sub SolveForPace {
 sub SolveForDistance {
 	my ($time, $pace, $resultunit) = @_;
 	my $meters = SimplifyTime($time) / SimplifyPace($pace);
-	return "Distance: " . $meters / MetersPerUnit($resultunit) . " $resultunit";
+	my $distance = $meters / MetersPerUnit($resultunit);
+	return sprintf("Distance: %.2f %s", $distance, $resultunit);
 }
 
 sub SolveForTime {
