@@ -19,7 +19,7 @@ my $unit_dists = join("|", keys(%unit_distances));
 my $unit_re = qr/$unit_dists/;
 
 my $time_re = qr/\d+:\d\d(?:\.\d+)?/;
-my $pace_re = qr/$time_re\/$unit_re/;
+my $pace_re = qr/(?<pacetime>$time_re)\/(?<paceunit>$unit_re)/;
 my $count_re = qr/\d+(?:\.\d+)?/;
 
 # table of named distances to meters
@@ -32,6 +32,8 @@ my %named_distances = (
 my $named_dists = join("|", map(quotemeta, keys(%named_distances)));
 my $distunit_re = qr/(?<count>$count_re) ?(?<unit>$unit_re)/;
 my $distance_re = qr/$named_dists|$distunit_re/;
+
+my $resultunit_re = qr/(?:\s+(?<result>$unit_re))?/;
 
 # Returns seconds in HH:MM:SS format.
 # hacky, doesn't handle decimal seconds
@@ -62,7 +64,7 @@ sub MetersPerUnit {
 # Cannot handle seconds only; cannot handle hours.
 sub SimplifyTime {
 	my $time = shift;
-	$time =~ m/(\d+):(\d\d(?:\.\d+)?)/;
+	$time =~ m/(\d+):(\d\d(?:\.\d+)?)/;	
 	return ($1 * 60) + $2;
 }
 
@@ -76,41 +78,35 @@ sub SimplifyDistance {
 # Returns pace in seconds per meter.
 sub SimplifyPace {
 	my $pace = shift;
-	$pace =~ m/($time_re)\/($unit_re)/;
-	my $ptime = $1;
-	my $punit = $2;
-	return SimplifyTime($ptime) / MetersPerUnit($punit);
+	return SimplifyTime($+{pacetime}) / MetersPerUnit($+{paceunit}) if $pace =~ m/$pace_re/;
 }
 
 sub SolveForPace {
-	my ($time, $dist) = @_;
+	my ($time, $dist, $resultunit) = @_;
 	my $permeter = SimplifyTime($time) / SimplifyDistance($dist);
-	# infer appropriate unit from distance unit, default, or explicit request
-	my $perunit = $permeter * MetersPerUnit("mile");
-	my $pace = FormatTime($perunit);
-	return "Pace: $pace/mile";
+	my $perunit = $permeter * MetersPerUnit($resultunit);
+	return "Pace: " . FormatTime($perunit) . "/$resultunit";
 }
 
 sub SolveForDistance {
-	my ($time, $pace) = @_;
+	my ($time, $pace, $resultunit) = @_;
 	my $meters = SimplifyTime($time) / SimplifyPace($pace);
-	# infer appropriate unit from distance unit, default, or explicit request
-	my $units = $meters / MetersPerUnit("miles");
-	return "Distance: $units miles";
+	return "Distance: " . $meters / MetersPerUnit($resultunit) . " $resultunit";
 }
 
 sub SolveForTime {
 	my ($dist, $pace) = @_;
 	my $seconds = SimplifyDistance($dist) * SimplifyPace($pace);
-	my $time = FormatTime($seconds);
-	return "Time: $time"; 
+	return "Time: " . FormatTime($seconds);
 }
 
 handle remainder => sub {
-	if (m/^(?<time>$time_re) (?<dist>$distance_re)$/ or m/^(?<dist>$distance_re) (?<time>$time_re)$/) {
-		return SolveForPace($+{time}, $+{dist});
-	} elsif (m/^(?<time>$time_re) (?<pace>$pace_re)$/ or m/^(?<pace>$pace_re) (?<time>$time_re)$/) {
-		return SolveForDistance($+{time}, $+{pace});
+	if (m/^(?<time>$time_re) (?<dist>$distance_re)$resultunit_re$/ or m/^(?<dist>$distance_re) (?<time>$time_re)$resultunit_re$/) {
+		my $resultunit = exists $+{result} ? $+{result} : exists $+{unit} ? $+{unit} : 'mile';
+		return SolveForPace($+{time}, $+{dist}, $resultunit);
+	} elsif (m/^(?<time>$time_re) (?<pace>$pace_re)$resultunit_re$/ or m/^(?<pace>$pace_re) (?<time>$time_re)$resultunit_re$/) {
+		my $resultunit = exists $+{result} ? $+{result} : exists $+{paceunit} ? $+{paceunit} : 'mile';
+		return SolveForDistance($+{time}, $+{pace}, $resultunit);
 	} elsif (m/^(?<dist>$distance_re) (?<pace>$pace_re)$/ or m/^(?<pace>$pace_re) (?<dist>$distance_re)$/) {
 		return SolveForTime($+{dist}, $+{pace});
 	} else {
