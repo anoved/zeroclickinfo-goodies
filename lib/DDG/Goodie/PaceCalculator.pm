@@ -15,8 +15,8 @@ my %unit_distances = (
 my $unit_dists = join("|", keys(%unit_distances));
 my $unit_re = qr/$unit_dists/;
 
-my $time_re = qr/(?<minutes>\d+):(?<seconds>\d\d(?:\.\d+)?)/;
-my $pace_re = qr/(?<pacetime>$time_re)\/(?<paceunit>$unit_re)/;
+my $time_re = qr/(?<time>(?<minutes>\d+):(?<seconds>\d\d(?:\.\d+)?))/;
+my $pace_re = qr/(?<pace>(?<pacetime>$time_re)\/(?<paceunit>$unit_re))/;
 my $count_re = qr/\d+(?:\.\d+)?/;
 
 # table of named distances to meters
@@ -28,7 +28,7 @@ my %named_distances = (
 # assemble re of exact matches for named distance keys
 my $named_dists = join("|", map(quotemeta, keys(%named_distances)));
 my $distunit_re = qr/(?<count>$count_re) ?(?<unit>$unit_re)/;
-my $distance_re = qr/$named_dists|$distunit_re/;
+my $distance_re = qr/(?<dist>$named_dists|$distunit_re)/;
 
 my $resultunit_re = qr/(?:\s+(?<result>$unit_re))?/;
 
@@ -100,13 +100,16 @@ sub SolveForTime {
 }
 
 handle remainder => sub {
-	if (m/^(?<time>$time_re) (?<dist>$distance_re)$resultunit_re$/ or m/^(?<dist>$distance_re) (?<time>$time_re)$resultunit_re$/) {
+	if (m/^$time_re $distance_re$resultunit_re$/
+			or m/^$distance_re $time_re$resultunit_re$/) {
 		my $resultunit = exists $+{result} ? $+{result} : exists $+{unit} ? $+{unit} : 'mile';
 		return SolveForPace($+{time}, $+{dist}, $resultunit);
-	} elsif (m/^(?<time>$time_re) (?<pace>$pace_re)$resultunit_re$/ or m/^(?<pace>$pace_re) (?<time>$time_re)$resultunit_re$/) {
+	} elsif (m/^$time_re $pace_re$resultunit_re$/
+			or m/^$pace_re $time_re$resultunit_re$/) {
 		my $resultunit = exists $+{result} ? $+{result} : exists $+{paceunit} ? $+{paceunit} : 'mile';
 		return SolveForDistance($+{time}, $+{pace}, $resultunit);
-	} elsif (m/^(?<dist>$distance_re) (?<pace>$pace_re)$/ or m/^(?<pace>$pace_re) (?<dist>$distance_re)$/) {
+	} elsif (m/^$distance_re $pace_re$/
+			or m/^$pace_re $distance_re$/) {
 		return SolveForTime($+{dist}, $+{pace});
 	} else {
 		return;
