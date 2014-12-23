@@ -15,7 +15,7 @@ my %unit_distances = (
 my $unit_dists = join("|", keys(%unit_distances));
 my $unit_re = qr/$unit_dists/;
 
-my $time_re = qr/(?<time>(?<minutes>\d+):(?<seconds>\d\d(?:\.\d+)?))/;
+my $time_re = qr/(?<time>(?:(?<hours>\d+):)?(?<minutes>\d+):(?<seconds>\d\d(?:\.\d+)?))/;
 my $pace_re = qr/(?<pace>(?<pacetime>$time_re)\/(?<paceunit>$unit_re))/;
 my $count_re = qr/\d+(?:\.\d+)?/;
 
@@ -63,7 +63,11 @@ sub MetersPerUnit {
 sub SimplifyTime {
 	my $time = shift;
 	$time =~ m/$time_re/;
-	return ($+{minutes} * 60) + $+{seconds};
+	my $seconds = 0;
+	$seconds += $+{seconds} if exists $+{seconds};
+	$seconds += $+{minutes} * 60 if exists $+{minutes};
+	$seconds += $+{hours} * 3600 if exists $+{hours};
+	return $seconds;
 }
 
 # Returns distance in meters.
