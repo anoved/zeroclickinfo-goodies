@@ -32,8 +32,12 @@ my $distance_re = qr/(?<dist>$named_dists|$distunit_re)/;
 
 my $resultunit_re = qr/(?:\s+(?<result>$unit_re))?/;
 
-# Returns seconds in HH:MM:SS format.
-# hacky, doesn't handle decimal seconds
+#
+# FormatTime
+#
+# Given a time in seconds, returns formatted string.
+# Uses HH:MM:SS format. Fragile.
+#
 sub FormatTime {
 	my $seconds = shift;
 	my $minutes = 0;
@@ -50,7 +54,11 @@ sub FormatTime {
 	return ($hours > 0 ? sprintf('%d:%02d:%02d', $hours, $minutes, $seconds) : sprintf('%d:%02d', $minutes, $seconds));
 }
 
-# Return meter equivalent of given unit.
+#
+# MetersPerUnit
+#
+# Returns meter equivalent of given unit.
+#
 sub MetersPerUnit {
 	my $unit = shift;
 	for my $re (keys %unit_distances) {
@@ -58,8 +66,11 @@ sub MetersPerUnit {
 	}
 }
 
-# Returns time in seconds.
-# Cannot handle seconds only; cannot handle hours.
+#
+# SimplifyTime
+#
+# Returns time in seconds. Fragile.
+# 
 sub SimplifyTime {
 	my $time = shift;
 	$time =~ m/$time_re/;
@@ -70,19 +81,32 @@ sub SimplifyTime {
 	return $seconds;
 }
 
+#
+# SimplifyDistance
+#
 # Returns distance in meters.
+#
 sub SimplifyDistance {
 	my $dist = shift;
 	return $named_distances{$dist} if exists $named_distances{$dist};
 	return $+{count} * MetersPerUnit($+{unit}) if $dist =~ m/$distunit_re/;
 }
 
+#
+# SimplifyPace
+#
 # Returns pace in seconds per meter.
+#
 sub SimplifyPace {
 	my $pace = shift;
 	return SimplifyTime($+{pacetime}) / MetersPerUnit($+{paceunit}) if $pace =~ m/$pace_re/;
 }
 
+#
+# SolveForPace
+#
+# Given a distance and total time, return average pace.
+#
 sub SolveForPace {
 	my ($time, $dist, $resultunit) = @_;
 	my $permeter = SimplifyTime($time) / SimplifyDistance($dist);
@@ -90,6 +114,11 @@ sub SolveForPace {
 	return "Pace: " . FormatTime($perunit) . "/$resultunit";
 }
 
+#
+# SolveForDistance
+#
+# Given a pace and a total time, return total distance.
+#
 sub SolveForDistance {
 	my ($time, $pace, $resultunit) = @_;
 	my $meters = SimplifyTime($time) / SimplifyPace($pace);
@@ -97,6 +126,11 @@ sub SolveForDistance {
 	return sprintf("Distance: %.2f %s", $distance, $resultunit);
 }
 
+#
+# SolveForTime
+#
+# Given a distance and a pace, return predicted total time.
+#
 sub SolveForTime {
 	my ($dist, $pace) = @_;
 	my $seconds = SimplifyDistance($dist) * SimplifyPace($pace);
