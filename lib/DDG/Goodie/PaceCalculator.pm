@@ -12,25 +12,28 @@ my %unit_distances = (
 	qr/miles?/ => 1609
 );
 
-my $unit_dists = join("|", keys(%unit_distances));
-my $unit_re = qr/$unit_dists/;
-
-my $time_re = qr/(?<time>(?:(?<hours>\d+):)?(?<minutes>\d+):(?<seconds>\d\d(?:\.\d+)?))/;
-my $pace_re = qr/(?<pace>(?<pacetime>$time_re)\/(?<paceunit>$unit_re))/;
-my $count_re = qr/\d+(?:\.\d+)?/;
-
 # table of named distances to meters
-my %named_distances = (
+my %race_distances = (
 	"marathon" => 42195,
 	"half marathon" => 21098
 );
 
-# assemble re of exact matches for named distance keys
-my $named_dists = join("|", map(quotemeta, keys(%named_distances)));
-my $distunit_re = qr/(?<count>$count_re) ?(?<unit>$unit_re)/;
-my $distance_re = qr/(?<dist>$named_dists|$distunit_re)/;
+# partial search terms comprised of sets of alternatives
+my $unit_terms = join("|", keys(%unit_distances));
+my $race_terms = join("|", map(quotemeta, keys(%race_distances)));
 
-my $resultunit_re = qr/(?:\s+(?<result>$unit_re))?/;
+# partial search terms
+my $time_term = qr/(?:(?<hours>\d+):)?(?<minutes>\d+):(?<seconds>\d\d(?:\.\d+)?)/;
+my $count_term = qr/\d+(?:\.\d+)?/;
+my $dist_term = qr/(?<count>$count_term) ?(?<unit>$unit_terms)/;
+
+# primary search patterns
+my $time_re = qr/(?<time>$time_term)/;
+my $pace_re = qr/(?<pace>(?<pacetime>$time_term)\/(?<paceunit>$unit_terms))/;
+my $dist_re = qr/(?<dist>$race_terms|$dist_term)/;
+
+# optional explicit distance unit pattern
+my $unit_re = qr/(?:\s+(?<result>$unit_terms))?/;
 
 #
 # FormatTime
@@ -73,7 +76,7 @@ sub MetersPerUnit {
 # 
 sub SimplifyTime {
 	my $time = shift;
-	$time =~ m/$time_re/;
+	$time =~ m/$time_term/;
 	my $seconds = 0;
 	$seconds += $+{seconds} if exists $+{seconds};
 	$seconds += $+{minutes} * 60 if exists $+{minutes};
@@ -88,8 +91,8 @@ sub SimplifyTime {
 #
 sub SimplifyDistance {
 	my $dist = shift;
-	return $named_distances{$dist} if exists $named_distances{$dist};
-	return $+{count} * MetersPerUnit($+{unit}) if $dist =~ m/$distunit_re/;
+	return $race_distances{$dist} if exists $race_distances{$dist};
+	return $+{count} * MetersPerUnit($+{unit}) if $dist =~ m/$dist_term/;
 }
 
 #
@@ -138,16 +141,13 @@ sub SolveForTime {
 }
 
 handle remainder => sub {
-	if (m/^$time_re $distance_re$resultunit_re$/
-			or m/^$distance_re $time_re$resultunit_re$/) {
+	if (m/^(?:$time_re\s+$dist_re$unit_re|$dist_re\s+$time_re$unit_re)$/) {
 		my $resultunit = exists $+{result} ? $+{result} : exists $+{unit} ? $+{unit} : 'mile';
 		return SolveForPace($+{time}, $+{dist}, $resultunit);
-	} elsif (m/^$time_re $pace_re$resultunit_re$/
-			or m/^$pace_re $time_re$resultunit_re$/) {
+	} elsif (m/^(?:$time_re\s+$pace_re$unit_re|$pace_re\s+$time_re$unit_re)$/) {
 		my $resultunit = exists $+{result} ? $+{result} : exists $+{paceunit} ? $+{paceunit} : 'mile';
 		return SolveForDistance($+{time}, $+{pace}, $resultunit);
-	} elsif (m/^$distance_re $pace_re$/
-			or m/^$pace_re $distance_re$/) {
+	} elsif (m/^(?:$dist_re\s+$pace_re|$pace_re\s+$dist_re)$/) {
 		return SolveForTime($+{dist}, $+{pace});
 	} else {
 		return;
